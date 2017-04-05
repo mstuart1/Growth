@@ -21,7 +21,7 @@ tags <- leyte %>% tbl("clownfish") %>%
   select(capid, recap, tagid, size, sample_id, anem_table_id) %>% 
   collect()
 
-# fix the format of the tagid column
+# change the format of the tagid column from num to character
 tags$tagid <- as.character(tags$tagid)
 
 # paste the tags rows under the fish rows
@@ -32,7 +32,7 @@ fish <- distinct(fish)
 
 # attach dates of anem obs (not all have sample_id so can't use datefishcap) ####
 date <- dateanem(fish$anem_table_id)
-date$date <- as.Date(date$date)
+date$date <- as.Date(date$date) # change dates from characters to date format
 fish <- left_join(fish, date, by = "anem_table_id")
 
 # clean up
@@ -48,21 +48,24 @@ fish$date[is.na(fish$date)] <- "1901-01-01"
 
 # remove samples with missing sizes or dates ####
   # look at which fish do not have a size
-fish[is.na(fish$size),]
+fish[(fish$size == 0),]
 
 # need to remove the complete pair of the recapture event, even if one of the fish has a measurement
 # currently only fish with capids have missing values, if there were some with tagids, those would also be changed to X and removed.
 
 # make a list of capids to remove
-X <- fish$capid[is.na(fish$size)] 
+X <- fish$capid[fish$size == 0] 
 
 fish$capid[fish$capid %in% X] <- "X"
 
 # repeat for missing dates
-fish[is.na(fish$date), ] # in this case has already been taken care of
+fish[fish$date == "1901-01-01", ] # in this case has already been taken care of by size above
 
 # remove the samples with X values
 fish <- fish[fish$capid != "X", ]
+
+# clean up 
+rm(X)
 
 # remove fish that were caught on the same date and have capid ####
 datedif <- data.frame() # empty data frame
@@ -121,7 +124,7 @@ for(i in 1:length(tags)){
 }
 
 # remove duplicate rows
-recapture <- dplyr::distinct(recapture)
+recapture <- distinct(recapture)
 
 # reduce table to only necessary columns
 recapture <- recapture %>% 
@@ -134,8 +137,9 @@ recapture$L2 <- as.numeric(recapture$L2)
 # convert tal to proportion of year
 recapture <- mutate(recapture, tal = tal/365)
 
-write_tsv(recapture, "data/growth_for_admb.tsv")
-
+# remove fish with negative growth
+recapture <- recapture %>% 
+  filter(growth >= 0)
 
 # Build the dat components for the outfile
 msg1 <- c("# init_int numGrowIncObs")
@@ -150,5 +154,4 @@ write_lines(msg3, path = "admb/BET-grow.dat", append = T)
 msg4 <- c("# L1	L2	GrowInc	Time")
 write_lines(msg4, path = "admb/BET-grow.dat", append = T)
 
-# dat <- str_c(recapture$L1, recapture$L2, recapture$growth, recapture$tal, collapse = " ")
-write_lines(recapture, path = "admb/BET-grow.dat", append = T)
+write_tsv(recapture, "admb/BET-grow.dat", append = T)
