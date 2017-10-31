@@ -10,8 +10,24 @@ source("../Phil_code/conleyte.R")
 source("../Phil_code/dateanemobs.R")
 source("../Phil_code/siteanem.R")
 
+library(dplyr)
+
+# read_db ####
+#' views all of the fish recaptured at a given site
+#' @export
+#' @name read_db
+#' @author Michelle Stuart
+#' @param x = which db?
+#' @examples 
+#' db <- read_Db("Leyte")
+
+read_db <- function(db_name){
+  db <- src_mysql(dbname = db_name, default.file = path.expand("~/myconfig.cnf"), port = 3306, create = F, host = NULL, user = NULL, password = NULL)
+  return(db)
+}
+
 # get a list of recaptured fish ####
-leyte <- conleyte()
+leyte <- read_db("Leyte")
 fish <- leyte %>% tbl("clownfish") %>% 
   filter(!is.na(capid) | recap == "Y") %>% 
   select(capid, recap, tagid, size, sample_id, anem_table_id) %>% 
